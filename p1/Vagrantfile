@@ -1,0 +1,35 @@
+Vagrant.configure(2) do |config|
+
+	config.vm.provision "shell", reboot: true, privileged: true, path: "scripts/mirrow.sh"
+	config.vm.box_check_update = false
+	config.vm.box = "centos/8"
+
+	config.vm.define "odhazzarS" do |s|
+		s.vm.provider "virtualbox" do |v|
+			v.memory = 1024
+			v.cpus = 1
+			v.customize ["modifyvm", :id, "--name", "odhazzarS", "--natdnsproxy1", "on", "--natdnshostresolver1", "on"]
+
+		end
+		s.vm.network :private_network, ip: "192.168.42.110"
+		s.vm.hostname = "odhazzarS"
+		s.vm.provision "shell", privileged: true, path: "scripts/server.sh"
+
+		s.trigger.after :up do |trigger|
+			trigger.name = "create token"
+			trigger.run = { "inline": "/bin/bash -c 'scp -i ./.vagrant/machines/odhazzarS/virtualbox/private_key -o StrictHostKeyChecking=no -r -P2222 vagrant@127.0.0.1:/vagrant/token ./confs/token'" }
+		end
+	end
+
+	config.vm.define "odhazzarSW" do |sw|
+		sw.vm.provider "virtualbox" do |v|
+			v.memory = 1024
+			v.cpus = 1
+			v.customize ["modifyvm", :id, "--name", "odhazzarSW", "--natdnsproxy1", "on", "--natdnshostresolver1", "on"]
+		end
+		sw.vm.provision "file", source: "./confs/token", destination: "/vagrant/token"
+		sw.vm.network :private_network, ip: "192.168.42.111"
+		sw.vm.hostname = "odhazzarSW"
+		sw.vm.provision "shell", privileged: true, path: "scripts/worker.sh"
+	end
+end
